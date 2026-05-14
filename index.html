@@ -307,9 +307,12 @@ function getForm(team) {
 
 function computePlayerSR(playerName, playerPos, srMode, srPeriod, oppKey, venue) {
   if (srMode === 'posVsOpp') {
-    const recs = TRY_RECS.filter(r => r.p === playerPos && r.op === oppKey);
-    const rounds = [...new Set(TRY_RECS.filter(r => r.op === oppKey).map(r => r.r))];
-    const tot = rounds.length;
+    let allRounds = [...new Set(TRY_RECS.filter(r => r.op === oppKey).map(r => r.r))].sort((a,b)=>a-b);
+    if (srPeriod === 'last10') allRounds = allRounds.slice(-10);
+    else if (srPeriod === 'last5') allRounds = allRounds.slice(-5);
+    const roundSet = new Set(allRounds);
+    const recs = TRY_RECS.filter(r => r.p === playerPos && r.op === oppKey && roundSet.has(r.r));
+    const tot = allRounds.length;
     if (tot === 0) return null;
     const roundsWithTry = [...new Set(recs.map(r => r.r))].length;
     return {scored: roundsWithTry, tot, pct: Math.round(roundsWithTry/tot*100)};
@@ -992,9 +995,10 @@ function PlayerProfile({player,teamKey,oppKey,game,initMode,onClose}){
     if(!oppPlayer) return null;
     const og = (PGAMES[oppPlayer.pl] || []).filter(g => g.s === '2026');
     const games = og.length;
-    const tries = og.reduce((s,g) => s + g.t, 0);
-    return {games, tries};
-  }, [oppPlayer]);
+    const oppTeamKey = teamKey === game.t1 ? game.t2 : game.t1;
+    const conceded = TRY_RECS.filter(r => r.op === oppTeamKey && r.c === oppPlayer.pl).length;
+    return {games, tries: conceded};
+  }, [oppPlayer, teamKey, game]);
 
   const [ppPer,setPPPer]=useState('all');
   const [hmOpen, setHmOpen]=useState(false);
@@ -1298,12 +1302,13 @@ function PC({pl, side, teamKey, oppKey, srMode, srPeriod, venue, isExp, onTog, o
 
   const sr = useMemo(() => {
     if (srMode === 'posVsOpp') {
-      // Count tries scored by this position against the opponent from tryscorer data
       const pos = pl.pos;
-      const recs = TRY_RECS.filter(r => r.p === pos && r.op === oppKey);
-      // Count unique rounds as games
-      const rounds = [...new Set(TRY_RECS.filter(r => r.op === oppKey).map(r => r.r))];
-      const tot = rounds.length;
+      let allRounds = [...new Set(TRY_RECS.filter(r => r.op === oppKey).map(r => r.r))].sort((a,b)=>a-b);
+      if (srPeriod === 'last10') allRounds = allRounds.slice(-10);
+      else if (srPeriod === 'last5') allRounds = allRounds.slice(-5);
+      const roundSet = new Set(allRounds);
+      const recs = TRY_RECS.filter(r => r.p === pos && r.op === oppKey && roundSet.has(r.r));
+      const tot = allRounds.length;
       if (tot === 0) return null;
       const triesScored = recs.length;
       const roundsWithTry = [...new Set(recs.map(r => r.r))].length;
