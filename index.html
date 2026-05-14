@@ -1066,6 +1066,25 @@ function PlayerProfile({player,teamKey,oppKey,game,initMode,onClose}){
     return h < 17 || (h === 17 && mins === 0); // 5:00 PM or earlier = day
   }, [game.ko]);
 
+  // Team position data: all players who played this position for this team
+  const teamPosG = useMemo(() => {
+    const gameLogs = [];
+    Object.entries(PGAMES).forEach(([name, games]) => {
+      games.forEach(g => {
+        if(g.tm === teamKey && posAliases.includes(g.p)){
+          gameLogs.push({s:g.s,dt:g.dt,o:g.o,name,t:g.t,v:g.v,p:g.p,tm:g.tm,ft:g.ft,lt:g.lt});
+        }
+      });
+    });
+    gameLogs.sort((a,b) => parseDate(b.dt) - parseDate(a.dt));
+    let fg = gameLogs;
+    if(ppPer==='last3y') fg=fg.filter(g=>['2023','2024','2025','2026'].includes(g.s));
+    else if(ppPer==='2026') fg=fg.filter(g=>g.s==='2026');
+    else if(ppPer==='last10') fg=fg.slice(0,10);
+    else if(ppPer==='last5') fg=fg.slice(0,5);
+    return fg;
+  },[teamKey, posAliases, ppPer]);
+
   const todG = useMemo(() => {
     return applyPer(allGRaw.filter(g => {
       const ko = g.ko || '';
@@ -1263,6 +1282,7 @@ function PlayerProfile({player,teamKey,oppKey,game,initMode,onClose}){
           <PPRow label={`vs ${oppKey}`} games={h2hG} initOpen={initMode==='h2h'}/>
           {venueG.length>0&&<PPRow label={`at ${gameVenue}`} games={venueG} initOpen={initMode==='venue'}/>}
           <PPRow label={`as ${pos}`} games={posG}/>
+          <PPPvRow label={`${teamKey} ${pos}s`} games={teamPosG}/>
           {todG.length>0&&<PPRow label={isDayGame?'Day Games':'Night Games'} games={todG}/>}
           {dayG.length>0&&<PPRow label={`on ${gameDayFull}`} games={dayG}/>}
         </div>
